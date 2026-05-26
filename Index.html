@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saasy Logs - The Salesforce Batch Log Parser</title>
+    <style>
+        :root {
+            --bg-main: #0f111a;
+            --bg-card: #161925;
+            --accent-blue: #38bdf8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #222536;
+            --ducky-gold: #fbbf24;
+            --corgi-orange: #fb923c;
+            --dreadnought-red: #ef4444;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            text-align: center;
+            padding: 60px 20px 40px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* Pure CSS representation of your SL logo with sunglasses */
+        .logo-container {
+            display: inline-block;
+            background: #1d4ed8;
+            color: #ffffff;
+            font-family: serif;
+            font-size: 5rem;
+            font-weight: bold;
+            width: 140px;
+            height: 140px;
+            line-height: 130px;
+            border-radius: 28px;
+            position: relative;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px -5px rgba(29, 78, 216, 0.4);
+        }
+
+        .logo-sunglasses {
+            position: absolute;
+            top: 48%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 85px;
+            height: auto;
+            opacity: 0.95;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin: 10px 0;
+            letter-spacing: -0.05em;
+        }
+
+        .tagline {
+            font-size: 1.25rem;
+            color: var(--accent-blue);
+            max-width: 600px;
+            margin: 0 auto 30px auto;
+        }
+
+        .cta-btn {
+            display: inline-block;
+            background-color: var(--accent-blue);
+            color: var(--bg-main);
+            padding: 12px 32px;
+            font-weight: bold;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-2px);
+            background-color: #7dd3fc;
+        }
+
+        .main-content {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 1.75rem;
+            margin-bottom: 40px;
+        }
+
+        /* Tier Grid Layout */
+        .tier-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 80px;
+        }
+
+        .tier-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            transition: border-color 0.3s;
+        }
+
+        .tier-card:hover {
+            border-color: #334155;
+        }
+
+        .tier-badge {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            display: inline-block;
+        }
+
+        .tier-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .tier-price {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .duck-color { color: var(--ducky-gold); }
+        .corgi-color { color: var(--corgi-orange); }
+        .dread-color { color: var(--dreadnought-red); }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            text-align: left;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .feature-list li {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+
+        .feature-list li::before {
+            content: "✓";
+            color: var(--accent-blue);
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        /* Documentation / Privacy section */
+        .legal-section {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 40px;
+            margin-top: 40px;
+        }
+
+        footer {
+            background-color: #080911;
+            padding: 30px 20px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+
+        footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+            margin: 0 10px;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            SL
+            <svg class="logo-sunglasses" viewBox="0 0 100 40" fill="black" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5 15 C 5 5, 45 5, 45 15 C 45 28, 15 28, 5 15 Z" />
+                <path d="M55 15 C 55 5, 95 5, 95 15 C 95 28, 65 28, 55 15 Z" />
+                <rect x="42" y="12" width="16" height="5" rx="2" />
+                <path d="M12 10 L 2 15" stroke="black" stroke-width="3" stroke-linecap="round"/>
+                <path d="M88 10 L 98 15" stroke="black" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+        </div>
+        <h1>SAASY LOGS</h1>
+        <div class="tagline">The Salesforce Batch Log Parser for Google Sheets. Stop squinting at raw text files. Let Saasy crunch your data.</div>
+        <a href="#marketplace" class="cta-btn">Coming Soon to Google Workspace Marketplace</a>
+    </header>
+
+    <div class="main-content">
+        <h2 class="section-title">Explore the Saasy Logs Empire</h2>
+        
+        <div class="tier-grid">
+            <div class="tier-card">
+                <span class="tier-badge">🦆</span>
+                <div class="tier-name duck-color">Rubber Ducky Edition</div>
+                <div class="tier-price">Free / Casual Debugging</div>
+                <ul class="feature-list">
+                    <li>Single log file parsing via copy-paste</li>
+                    <li>Basic text extraction and row structuring</li>
+                    <li>Standard Google Sheets layout parsing</li>
+                    <li>Perfect for quick, one-off Apex troubleshooting</li>
+                </ul>
+            </div>
+
+            <div class="tier-card" style="border-color: #334155;">
+                <span class="tier-badge">🐶</span>
+                <div class="tier-name corgi-color">Corgi Pro Edition</div>
+                <div class="tier-price">Medium Scale / Pro Developers</div>
+                <ul class="feature-list">
+                    <li><strong>Batch Drive Folder Fetching:</strong> Parse an entire folder of logs directly from Google Drive into one single sheet</li>
+                    <li>Automated clear/append configuration overrides</li>
+                    <li>Customizable "Noise Filters" (Skip variable assignments)</li>
+                    <li>Dynamic visual color-coding for exception traces</li>
+                </ul>
+            </div>
+
+            <div class="tier-card">
+                <span class="tier-badge">🚢</span>
+                <div class="tier-name dreadnought-color">Dreadnought Edition</div>
+                <div class="tier-price">Ultimate / Enterprise Architecture</div>
+                <ul class="feature-list">
+                    <li>All Corgi Pro features included</li>
+                    <li><strong>Governor Limit Dashboard:</strong> Cross-log analytics mapping your CPU limits, SOQL, and DML usage visually</li>
+                    <li>Asynchronous processing handling files up to 5MB</li>
+                    <li>Team Domain licensing for consulting teams</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="legal-section" id="privacy">
+            <h3>🔒 Security & Privacy Policy</h3>
+            <p>At Saasy Logs, we respect enterprise data security protocols. Because your Salesforce debug logs can contain sensitive logic, object metadata, or system footprints, <strong>Saasy Logs does not collect, store, transmit, or view any of your log data.</strong></p>
+            <p>All processing, parsing, extraction, and string manipulation happen strictly inside your local Google Apps Script runtime architecture. No third-party network requests are ever made with your files. Your data never leaves your personal Google Drive and spreadsheet ecosystem.</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Saasy Logs. All rights reserved. | Built by a Salesforce Architect</p>
+        <p>Support: <a href="mailto:support@saasylogs.com">support@saasylogs.com</a></p>
+    </footer>
+
+</body>
+</html>
