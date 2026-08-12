@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Saasy Logs logo: interlocked S and L wearing aviator sunglasses">
+  <title>Saasy Logs</title>
+
+  <rect width="512" height="512" rx="96" fill="#4a90d9"/>
+
+  <!-- Interlocked SL monogram. Stroke-based so weight stays even at any size. -->
+  <g fill="none" stroke="#ffffff" stroke-width="66" stroke-linecap="butt" stroke-linejoin="miter">
+    <!-- L: vertical spine with a foot to the right -->
+    <path d="M 322 108 L 322 372 L 452 372"/>
+    <!-- S: fat geometric S overlapping the L's spine -->
+    <path d="M 286 130 C 214 106 118 122 118 186 C 118 246 214 250 262 262 C 316 275 332 312 306 350 C 280 388 178 392 118 366"/>
+  </g>
+
+  <!-- Aviator sunglasses -->
+  <g fill="#0b0d15">
+    <!-- brow bar -->
+    <rect x="52" y="222" width="408" height="22" rx="11"/>
+    <!-- bridge -->
+    <path d="M 214 240 C 232 226 280 226 298 240 L 298 258 C 280 248 232 248 214 258 Z"/>
+    <!-- left lens -->
+    <path d="M 66 238 H 216 L 200 306 C 193 336 170 354 141 354 C 112 354 88 335 81 305 L 66 244 Z"/>
+    <!-- right lens -->
+    <path d="M 446 238 H 296 L 312 306 C 319 336 342 354 371 354 C 400 354 424 335 431 305 L 446 244 Z"/>
+  </g>
+
+  <!-- Specular highlight on the left lens -->
+  <g stroke="#ffffff" stroke-opacity="0.5" stroke-width="13" stroke-linecap="round" fill="none">
+    <path d="M 98 262 L 128 306"/>
+    <path d="M 122 258 L 146 294"/>
+  </g>
+</svg>

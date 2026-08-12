@@ -1,270 +1,422 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saasy Logs - The Salesforce Batch Log Parser</title>
-    <style>
-        :root {
-            --bg-main: #0f111a;
-            --bg-card: #161925;
-            --accent-blue: #38bdf8;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --border: #222536;
-            --ducky-gold: #fbbf24;
-            --corgi-orange: #fb923c;
-            --dreadnought-red: #ef4444;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-main);
-            color: var(--text-main);
-            line-height: 1.6;
-            margin: 0;
-            padding: 0;
-        }
+<title>Saasy Logs — Salesforce Debug Log Analyzer for Google Sheets</title>
+<meta name="description" content="Turn Salesforce Apex debug logs into a ranked diagnosis: unlogged time gaps, governor limit pressure, and method hotspots by self time. Scrub logs before you share them. Runs entirely inside Google Sheets.">
+<link rel="canonical" href="https://saasylogs.com/">
+<meta name="theme-color" content="#0f111a">
 
-        header {
-            text-align: center;
-            padding: 60px 20px 40px 20px;
-            border-bottom: 1px solid var(--border);
-        }
+<!-- Open Graph / Twitter so shared links preview properly -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://saasylogs.com/">
+<meta property="og:site_name" content="Saasy Logs">
+<meta property="og:title" content="Saasy Logs — Salesforce Debug Log Analyzer for Google Sheets">
+<meta property="og:description" content="Stop scrolling 25 MB of raw log. Get the 10-second gap, the blown CPU limit, and the method that actually ate your transaction — ranked, in a spreadsheet.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Saasy Logs — Salesforce Debug Log Analyzer">
+<meta name="twitter:description" content="Ranked diagnosis of Apex debug logs, inside Google Sheets. Plus a scrubber so you can share logs without leaking customer data.">
 
-        /* Pure CSS representation of your SL logo with sunglasses */
-        .logo-container {
-            display: inline-block;
-            background: #1d4ed8;
-            color: #ffffff;
-            font-family: serif;
-            font-size: 5rem;
-            font-weight: bold;
-            width: 140px;
-            height: 140px;
-            line-height: 130px;
-            border-radius: 28px;
-            position: relative;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 25px -5px rgba(29, 78, 216, 0.4);
-        }
+<!--
+  Two marks, deliberately. favicon.svg is sunglasses-only: the interlocked SL
+  and the glasses compete for the same pixels, so the full mark is illegible
+  below ~48px. logo.svg is the full monogram, used in the header below.
+  .ico is listed last as a fallback for browsers that ignore SVG icons.
+-->
+<link rel="icon" type="image/svg+xml" href="/brand/favicon.svg">
+<link rel="apple-touch-icon" href="/brand/favicon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png">
+<link rel="icon" href="/brand/favicon.ico" sizes="any">
+<meta property="og:image" content="https://saasylogs.com/brand/logo-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:image:alt" content="Saasy Logs logo: interlocked S and L wearing aviator sunglasses">
+<meta name="twitter:image" content="https://saasylogs.com/brand/logo-512.png">
 
-        .logo-sunglasses {
-            position: absolute;
-            top: 48%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 85px;
-            height: auto;
-            opacity: 0.95;
-        }
+<style>
+  :root {
+    --bg-main: #0f111a;
+    --bg-card: #161925;
+    --bg-deep: #0b0d15;
+    --accent-blue: #38bdf8;
+    --text-main: #f8fafc;
+    --text-muted: #a3b0c2;
+    --border: #262a3d;
+    --ducky-gold: #fbbf24;
+    --corgi-orange: #fb923c;
+    --dreadnought-red: #f87171;
+  }
 
-        h1 {
-            font-size: 2.5rem;
-            margin: 10px 0;
-            letter-spacing: -0.05em;
-        }
+  *, *::before, *::after { box-sizing: border-box; }
 
-        .tagline {
-            font-size: 1.25rem;
-            color: var(--accent-blue);
-            max-width: 600px;
-            margin: 0 auto 30px auto;
-        }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    line-height: 1.65;
+    margin: 0;
+  }
 
-        .cta-btn {
-            display: inline-block;
-            background-color: var(--accent-blue);
-            color: var(--bg-main);
-            padding: 12px 32px;
-            font-weight: bold;
-            border-radius: 8px;
-            text-decoration: none;
-            transition: transform 0.2s, background-color 0.2s;
-        }
+  a { color: var(--accent-blue); }
 
-        .cta-btn:hover {
-            transform: translateY(-2px);
-            background-color: #7dd3fc;
-        }
+  :focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
 
-        .main-content {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 60px 20px;
-        }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
 
-        .section-title {
-            text-align: center;
-            font-size: 1.75rem;
-            margin-bottom: 40px;
-        }
+  /* ---------------- header ---------------- */
 
-        /* Tier Grid Layout */
-        .tier-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-            margin-bottom: 80px;
-        }
+  header {
+    text-align: center;
+    padding: 64px 20px 48px;
+    border-bottom: 1px solid var(--border);
+  }
 
-        .tier-card {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 30px;
-            text-align: center;
-            position: relative;
-            transition: border-color 0.3s;
-        }
+  .logo {
+    width: 132px;
+    height: 132px;
+    border-radius: 26px;
+    margin-bottom: 22px;
+    box-shadow: 0 10px 30px -8px rgba(29, 78, 216, .55);
+  }
 
-        .tier-card:hover {
-            border-color: #334155;
-        }
+  h1 {
+    font-size: clamp(2rem, 6vw, 2.6rem);
+    margin: 8px 0 12px;
+    letter-spacing: -.03em;
+  }
 
-        .tier-badge {
-            font-size: 3.5rem;
-            margin-bottom: 15px;
-            display: inline-block;
-        }
+  .tagline {
+    font-size: 1.15rem;
+    color: var(--text-muted);
+    max-width: 620px;
+    margin: 0 auto 14px;
+  }
+  .tagline strong { color: var(--accent-blue); font-weight: 600; }
 
-        .tier-name {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
+  .cta-row {
+    display: flex; gap: 12px; justify-content: center;
+    flex-wrap: wrap; margin-top: 28px;
+  }
 
-        .tier-price {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 20px;
-        }
+  .cta-btn {
+    display: inline-block;
+    background-color: var(--accent-blue);
+    color: #06202b;
+    padding: 13px 30px;
+    font-weight: 700;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: transform .18s ease, background-color .18s ease;
+  }
+  .cta-btn:hover { transform: translateY(-2px); background-color: #7dd3fc; }
 
-        .duck-color { color: var(--ducky-gold); }
-        .corgi-color { color: var(--corgi-orange); }
-        .dread-color { color: var(--dreadnought-red); }
+  .cta-btn.secondary {
+    background: transparent;
+    color: var(--text-main);
+    border: 1px solid var(--border);
+  }
+  .cta-btn.secondary:hover { background: var(--bg-card); border-color: #3b4361; }
 
-        .feature-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            text-align: left;
-            color: var(--text-muted);
-            font-size: 0.95rem;
-        }
+  @media (prefers-reduced-motion: reduce) {
+    .cta-btn, .tier-card { transition: none; }
+    .cta-btn:hover { transform: none; }
+  }
 
-        .feature-list li {
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-        }
+  /* ---------------- sections ---------------- */
 
-        .feature-list li::before {
-            content: "✓";
-            color: var(--accent-blue);
-            font-weight: bold;
-            margin-right: 10px;
-        }
+  main { padding: 60px 0 20px; }
 
-        /* Documentation / Privacy section */
-        .legal-section {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 40px;
-            margin-top: 40px;
-        }
+  .section-title {
+    text-align: center;
+    font-size: 1.6rem;
+    margin: 0 0 10px;
+    letter-spacing: -.02em;
+  }
+  .section-sub {
+    text-align: center;
+    color: var(--text-muted);
+    max-width: 640px;
+    margin: 0 auto 40px;
+  }
 
-        footer {
-            background-color: #080911;
-            padding: 30px 20px;
-            text-align: center;
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            border-top: 1px solid var(--border);
-        }
+  /* ---------------- sample output ---------------- */
 
-        footer a {
-            color: var(--accent-blue);
-            text-decoration: none;
-            margin: 0 10px;
-        }
+  .sample {
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    margin-bottom: 76px;
+  }
+  .sample table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: .86rem; }
+  .sample th {
+    text-align: left; padding: 6px 12px 10px;
+    color: var(--text-muted); font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    font-size: .74rem; letter-spacing: .09em; text-transform: uppercase;
+  }
+  .sample td { padding: 9px 12px; border-bottom: 1px solid #171b2a; vertical-align: top; }
+  .sample tr:last-child td { border-bottom: 0; }
+  .sample code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: .82rem; color: #cbd5e1; }
+  .sev { font-weight: 700; font-size: .74rem; letter-spacing: .06em; white-space: nowrap; }
+  .sev-crit { color: #f87171; }
+  .sev-warn { color: #fbbf24; }
+  .sev-info { color: #7dd3fc; }
 
-        footer a:hover {
-            text-decoration: underline;
-        }
-    </style>
+  /* ---------------- tiers ---------------- */
+
+  .tier-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 26px;
+    margin-bottom: 72px;
+  }
+
+  .tier-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    position: relative;
+    transition: border-color .25s ease;
+    display: flex; flex-direction: column;
+  }
+  .tier-card:hover { border-color: #3b4361; }
+  .tier-card.available { border-color: #1d4ed8; }
+
+  .flag {
+    position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+    background: var(--accent-blue); color: #06202b;
+    font-size: .68rem; font-weight: 800; letter-spacing: .1em;
+    padding: 4px 12px; border-radius: 99px; text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .tier-badge { font-size: 3rem; line-height: 1; display: block; margin-bottom: 12px; text-align: center; }
+  .tier-name { font-size: 1.3rem; font-weight: 700; text-align: center; }
+  .tier-price {
+    font-size: .84rem; font-weight: 600; margin-bottom: 20px;
+    text-align: center; color: var(--text-muted);
+    letter-spacing: .04em; text-transform: uppercase;
+  }
+
+  .duck-color  { color: var(--ducky-gold); }
+  .corgi-color { color: var(--corgi-orange); }
+  .dread-color { color: var(--dreadnought-red); }
+
+  .feature-list { list-style: none; padding: 0; margin: 0; color: var(--text-muted); font-size: .93rem; }
+  .feature-list li { margin-bottom: 13px; display: flex; align-items: flex-start; gap: 9px; }
+  .feature-list li::before { content: "✓"; color: var(--accent-blue); font-weight: 700; flex-shrink: 0; }
+  .feature-list strong { color: var(--text-main); font-weight: 600; }
+  .feature-list li.planned::before { content: "○"; color: #64748b; }
+
+  /* ---------------- legal ---------------- */
+
+  .legal-section {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 34px;
+    margin-bottom: 26px;
+    scroll-margin-top: 24px;
+  }
+  .legal-section h3 { margin-top: 0; font-size: 1.15rem; }
+  .legal-section p { color: var(--text-muted); }
+  .legal-section p:last-child { margin-bottom: 0; }
+  .legal-section strong { color: var(--text-main); }
+  .updated { font-size: .8rem; color: #64748b; margin-top: 20px !important; }
+
+  /* ---------------- footer ---------------- */
+
+  footer {
+    background-color: var(--bg-deep);
+    padding: 34px 20px;
+    text-align: center;
+    font-size: .9rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    margin-top: 50px;
+  }
+  footer nav { margin-bottom: 12px; }
+  footer nav a { margin: 0 10px; text-decoration: none; }
+  footer nav a:hover { text-decoration: underline; }
+  footer p { margin: 6px 0; }
+</style>
 </head>
 <body>
 
-    <header>
-        <div class="logo-container">
-            SL
-            <svg class="logo-sunglasses" viewBox="0 0 100 40" fill="black" xmlns="http://www.w3.org/2000/svg">
-                <path d="M5 15 C 5 5, 45 5, 45 15 C 45 28, 15 28, 5 15 Z" />
-                <path d="M55 15 C 55 5, 95 5, 95 15 C 95 28, 65 28, 55 15 Z" />
-                <rect x="42" y="12" width="16" height="5" rx="2" />
-                <path d="M12 10 L 2 15" stroke="black" stroke-width="3" stroke-linecap="round"/>
-                <path d="M88 10 L 98 15" stroke="black" stroke-width="3" stroke-linecap="round"/>
-            </svg>
-        </div>
-        <h1>SAASY LOGS</h1>
-        <div class="tagline">The Salesforce Batch Log Parser for Google Sheets. Stop squinting at raw text files. Let Saasy crunch your data.</div>
-        <a href="#marketplace" class="cta-btn">Coming Soon to Google Workspace Marketplace</a>
-    </header>
+<header>
+  <img class="logo" src="/brand/logo.svg" width="132" height="132"
+       alt="Saasy Logs logo: interlocked S and L wearing aviator sunglasses">
 
-    <div class="main-content">
-        <h2 class="section-title">Explore the Saasy Logs Empire</h2>
-        
-        <div class="tier-grid">
-            <div class="tier-card">
-                <span class="tier-badge">🦆</span>
-                <div class="tier-name duck-color">Rubber Ducky Edition</div>
-                <div class="tier-price">Free / Casual Debugging</div>
-                <ul class="feature-list">
-                    <li>Single log file parsing via copy-paste</li>
-                    <li>Basic text extraction and row structuring</li>
-                    <li>Standard Google Sheets layout parsing</li>
-                    <li>Perfect for quick, one-off Apex troubleshooting</li>
-                </ul>
-            </div>
+  <h1>SAASY LOGS</h1>
 
-            <div class="tier-card" style="border-color: #334155;">
-                <span class="tier-badge">🐶</span>
-                <div class="tier-name corgi-color">Corgi Pro Edition</div>
-                <div class="tier-price">Medium Scale / Pro Developers</div>
-                <ul class="feature-list">
-                    <li><strong>Batch Drive Folder Fetching:</strong> Parse an entire folder of logs directly from Google Drive into one single sheet</li>
-                    <li>Automated clear/append configuration overrides</li>
-                    <li>Customizable "Noise Filters" (Skip variable assignments)</li>
-                    <li>Dynamic visual color-coding for exception traces</li>
-                </ul>
-            </div>
+  <p class="tagline">
+    Salesforce Apex debug log analysis in Google Sheets. Stop scrolling 25&nbsp;MB of
+    raw text — get <strong>the gap that ate your transaction</strong>, ranked first.
+  </p>
 
-            <div class="tier-card">
-                <span class="tier-badge">🚢</span>
-                <div class="tier-name dreadnought-color">Dreadnought Edition</div>
-                <div class="tier-price">Ultimate / Enterprise Architecture</div>
-                <ul class="feature-list">
-                    <li>All Corgi Pro features included</li>
-                    <li><strong>Governor Limit Dashboard:</strong> Cross-log analytics mapping your CPU limits, SOQL, and DML usage visually</li>
-                    <li>Asynchronous processing handling files up to 5MB</li>
-                    <li>Team Domain licensing for consulting teams</li>
-                </ul>
-            </div>
-        </div>
+  <div class="cta-row">
+    <a href="#status" class="cta-btn">See what works today</a>
+    <a href="mailto:support@saasylogs.com?subject=Saasy%20Logs%20early%20access" class="cta-btn secondary">Ask for early access</a>
+  </div>
+</header>
 
-        <div class="legal-section" id="privacy">
-            <h3>🔒 Security & Privacy Policy</h3>
-            <p>At Saasy Logs, we respect enterprise data security protocols. Because your Salesforce debug logs can contain sensitive logic, object metadata, or system footprints, <strong>Saasy Logs does not collect, store, transmit, or view any of your log data.</strong></p>
-            <p>All processing, parsing, extraction, and string manipulation happen strictly inside your local Google Apps Script runtime architecture. No third-party network requests are ever made with your files. Your data never leaves your personal Google Drive and spreadsheet ecosystem.</p>
-        </div>
+<main>
+  <div class="wrap">
+
+    <h2 class="section-title">A diagnosis, not a data dump</h2>
+    <p class="section-sub">
+      A debug log will happily tell you 168,000 things. Almost none of them matter.
+      Saasy Logs ranks what does — here's real output from a 25&nbsp;MB log that blew
+      its CPU limit.
+    </p>
+
+    <div class="sample">
+      <table>
+        <caption class="sr-only" style="position:absolute;left:-9999px">Example ranked findings from a debug log</caption>
+        <thead>
+          <tr><th scope="col">Severity</th><th scope="col">Finding</th><th scope="col">Where</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="sev sev-crit">CRITICAL</td>
+            <td>CPU time exceeded: 30,064 of 25,000 (120%)</td>
+            <td><code>namespace (default)</code></td>
+          </tr>
+          <tr>
+            <td class="sev sev-crit">ERROR</td>
+            <td>System.LimitException: Apex CPU time limit exceeded</td>
+            <td><code>findTriggerRelations</code>, Apex line 22 — 5 occurrences</td>
+          </tr>
+          <tr>
+            <td class="sev sev-warn">WARN</td>
+            <td>Log is incomplete — Salesforce discarded 35.8 MB</td>
+            <td>Timings across the skip are unreliable</td>
+          </tr>
+          <tr>
+            <td class="sev sev-warn">WARN</td>
+            <td>8.88 s unlogged gap (3% of transaction)</td>
+            <td><code>line 113,890</code>, between VALIDATION_PASS and managed package</td>
+          </tr>
+          <tr>
+            <td class="sev sev-info">INFO</td>
+            <td>104.5 s self time in <code>updateTasks</code></td>
+            <td>25 calls · 125 s total · 25 DML — DML inside a loop</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
-    <footer>
-        <p>&copy; 2026 Saasy Logs. All rights reserved. | Built by a Salesforce Architect</p>
-        <p>Support: <a href="mailto:support@saasylogs.com">support@saasylogs.com</a></p>
-    </footer>
+    <h2 class="section-title" id="status">Where the project actually is</h2>
+    <p class="section-sub">
+      One tier works today. The other two are honest roadmap, not shipping product —
+      marked with ○ below.
+    </p>
+
+    <div class="tier-grid">
+
+      <div class="tier-card available">
+        <span class="flag">Working today</span>
+        <span class="tier-badge" role="img" aria-label="Rubber duck">🦆</span>
+        <div class="tier-name duck-color">Rubber Ducky Edition</div>
+        <div class="tier-price">Free forever</div>
+        <ul class="feature-list">
+          <li><strong>Ranked findings:</strong> exceptions, blown governor limits and the biggest unlogged time gaps, sorted by what will actually help you</li>
+          <li><strong>Self-time hotspots:</strong> which method burned the time, excluding its children, across every call</li>
+          <li class="planned"><strong>Log scrubber:</strong> strip record IDs, emails and field values before you paste a log into a ticket</li>
+          <li>Honest about incomplete logs — flags Salesforce truncation instead of inventing timings</li>
+          <li>Paste-only by design: no Drive permission requested, nothing leaves your spreadsheet</li>
+        </ul>
+      </div>
+
+      <div class="tier-card">
+        <span class="tier-badge" role="img" aria-label="Dog">🐶</span>
+        <div class="tier-name corgi-color">Corgi Pro Edition</div>
+        <div class="tier-price">Planned</div>
+        <ul class="feature-list">
+          <li class="planned">Batch folder parsing straight from Google Drive</li>
+          <li class="planned">Custom noise filters and saved analysis profiles</li>
+          <li class="planned">Colour-coded exception traces and clear/append control</li>
+          <li class="planned">Scrub profiles for regulated orgs</li>
+        </ul>
+      </div>
+
+      <div class="tier-card">
+        <span class="tier-badge" role="img" aria-label="Ship">🚢</span>
+        <div class="tier-name dread-color">Dreadnought Edition</div>
+        <div class="tier-price">Planned</div>
+        <ul class="feature-list">
+          <li class="planned"><strong>Cross-log analysis:</strong> rank methods by self time across twenty logs, not one — find the pattern a single log can't show</li>
+          <li class="planned">Governor limit trends over many transactions</li>
+          <li class="planned">Chunked handling of very large logs</li>
+          <li class="planned">Team licensing for consultancies</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <section class="legal-section" id="privacy">
+      <h3>🔒 Privacy Policy</h3>
+      <p>
+        Apex debug logs are among the most sensitive artefacts a Salesforce org
+        produces. They routinely contain record IDs, email addresses, field values and
+        the shape of your internal automation.
+      </p>
+      <p>
+        <strong>Saasy Logs does not collect, store, transmit or receive your log
+        data.</strong> Parsing happens entirely inside the Google Apps Script runtime
+        attached to your own spreadsheet. The add-on makes no external network
+        requests, contains no analytics or tracking, and requests no Google Drive
+        permission at all — it can only see the spreadsheet you open it from.
+      </p>
+      <p>
+        We operate no server and hold no account for you, so there is no database in
+        which your data could exist. Anything you paste stays in your spreadsheet and
+        is yours to delete.
+      </p>
+      <p class="updated">Last updated 11 August 2026 · Questions: <a href="mailto:support@saasylogs.com">support@saasylogs.com</a></p>
+    </section>
+
+    <section class="legal-section" id="terms">
+      <h3>📄 Terms of Service</h3>
+      <p>
+        Saasy Logs is provided free of charge and <strong>as is, without warranty of
+        any kind</strong>. It is a diagnostic aid: it reports what a debug log
+        contains and flags where a log is incomplete, but it cannot guarantee that
+        every performance problem in your org will be surfaced, and it is not a
+        substitute for your own engineering judgement.
+      </p>
+      <p>
+        You are responsible for ensuring you have the right to process any log you
+        paste into it. Do not use it on data you are not permitted to handle.
+      </p>
+      <p>
+        Not affiliated with, endorsed by, or sponsored by Salesforce, Inc. or Google
+        LLC. Salesforce, Apex and related marks are trademarks of Salesforce, Inc.
+      </p>
+      <p class="updated">Last updated 11 August 2026</p>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <nav aria-label="Footer">
+    <a href="#status">Status</a>
+    <a href="#privacy">Privacy</a>
+    <a href="#terms">Terms</a>
+    <a href="mailto:support@saasylogs.com">Support</a>
+  </nav>
+  <p>&copy; 2026 Saasy Logs. Built by a Salesforce developer who spent too long in debug logs.</p>
+</footer>
 
 </body>
 </html>
